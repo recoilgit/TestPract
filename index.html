@@ -6,17 +6,17 @@
 <style>
     body {
         font-family: Arial, sans-serif;
-        background: #eef1f5;
+        background: #e9eef5;
         margin: 0;
         padding: 0;
     }
     .container {
-        max-width: 800px;
+        max-width: 850px;
         margin: 40px auto;
         background: white;
-        padding: 30px;
-        border-radius: 14px;
-        box-shadow: 0 4px 25px rgba(0,0,0,0.12);
+        padding: 35px;
+        border-radius: 16px;
+        box-shadow: 0 6px 30px rgba(0,0,0,0.15);
         animation: fadeIn 0.4s ease;
     }
     @keyframes fadeIn {
@@ -25,7 +25,7 @@
     }
     h1, h2 {
         text-align: center;
-        margin-bottom: 20px;
+        margin-bottom: 25px;
     }
     .question-text {
         font-size: 22px;
@@ -36,14 +36,14 @@
         display: block;
         padding: 14px;
         margin: 10px 0;
-        background: #f3f6fa;
+        background: #f4f7fb;
         border-radius: 10px;
         cursor: pointer;
         transition: 0.2s;
         border: 2px solid transparent;
     }
     .answers label:hover {
-        background: #e4eaf3;
+        background: #e3eaf4;
     }
     .answers input:checked + span {
         font-weight: bold;
@@ -91,10 +91,6 @@
             <input type="number" id="timeMinutes" value="20" min="1" max="120">
         </label><br><br>
 
-        <label>Файл вопросов (.json):
-            <input type="file" id="fileInput" accept=".json">
-        </label><br><br>
-
         <button onclick="startTest()">Начать тест</button>
     </div>
 
@@ -119,20 +115,18 @@ let answers = {};
 let timeRemaining = 0;
 let timerId = null;
 
-// Загрузка JSON
-document.getElementById("fileInput").addEventListener("change", function(e) {
-    const reader = new FileReader();
-    reader.onload = function() {
-        allQuestions = JSON.parse(reader.result);
-        alert("Загружено вопросов: " + allQuestions.length);
-    };
-    reader.readAsText(e.target.files[0]);
-});
+// 🔥 Автозагрузка questions.json из корня GitHub Pages
+fetch("questions.json")
+    .then(r => r.json())
+    .then(data => {
+        allQuestions = data;
+        console.log("Вопросы загружены:", allQuestions.length);
+    })
+    .catch(err => alert("Ошибка загрузки questions.json"));
 
-// Старт теста
 function startTest() {
     if (allQuestions.length === 0) {
-        alert("Загрузите файл с вопросами!");
+        alert("Файл questions.json не найден!");
         return;
     }
 
@@ -148,7 +142,6 @@ function startTest() {
     showQuestion();
 }
 
-// Таймер
 function startTimer() {
     document.getElementById("timer").style.display = "block";
     updateTimer();
@@ -167,7 +160,6 @@ function updateTimer() {
         `Осталось времени: ${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
 }
 
-// Показ вопроса
 function showQuestion() {
     const q = selectedQuestions[currentIndex];
 
@@ -198,7 +190,6 @@ function showQuestion() {
 document.addEventListener("keydown", function(e) {
     const key = e.key;
 
-    // Выбор ответа 1–5
     if (["1","2","3","4","5"].includes(key)) {
         const index = parseInt(key) - 1;
         const options = document.querySelectorAll('input[name="answer"]');
@@ -212,13 +203,11 @@ document.addEventListener("keydown", function(e) {
         }
     }
 
-    // Enter = далее
     if (key === "Enter") {
         nextQuestion();
     }
 });
 
-// Следующий вопрос
 function nextQuestion() {
     const selected = document.querySelector('input[name="answer"]:checked');
 
@@ -240,7 +229,6 @@ function nextQuestion() {
     }
 }
 
-// Завершение теста
 function finishTest() {
     clearInterval(timerId);
 
@@ -267,7 +255,6 @@ function finishTest() {
     document.getElementById("resultScreen").style.display = "block";
 }
 
-// Шкала оценок
 function calculateGrade(percent) {
     if (percent <= 20) return 1;
     if (percent <= 30) return 2;
@@ -281,7 +268,6 @@ function calculateGrade(percent) {
     return 10;
 }
 
-// Перемешивание
 function shuffle(a) {
     return a.sort(() => Math.random() - 0.5);
 }
