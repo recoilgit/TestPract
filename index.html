@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Экзамен HyperTest</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: #eef1f5;
+        margin: 0;
+        padding: 0;
+    }
+    .container {
+        max-width: 800px;
+        margin: 40px auto;
+        background: white;
+        padding: 30px;
+        border-radius: 14px;
+        box-shadow: 0 4px 25px rgba(0,0,0,0.12);
+        animation: fadeIn 0.4s ease;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+    h1, h2 {
+        text-align: center;
+        margin-bottom: 20px;
+    }
+    .question-text {
+        font-size: 22px;
+        margin-bottom: 20px;
+        font-weight: bold;
+    }
+    .answers label {
+        display: block;
+        padding: 14px;
+        margin: 10px 0;
+        background: #f3f6fa;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: 0.2s;
+        border: 2px solid transparent;
+    }
+    .answers label:hover {
+        background: #e4eaf3;
+    }
+    .answers input:checked + span {
+        font-weight: bold;
+        color: #2a5bd7;
+    }
+    button {
+        padding: 14px 24px;
+        font-size: 18px;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        background: #4a7bd8;
+        color: white;
+        transition: 0.2s;
+        display: block;
+        margin: 25px auto 0;
+    }
+    button:hover {
+        background: #3a66b8;
+    }
+    #timer {
+        text-align: center;
+        font-size: 20px;
+        margin-bottom: 20px;
+        font-weight: bold;
+    }
+    img {
+        max-width: 100%;
+        margin: 15px 0;
+        border-radius: 10px;
+    }
+</style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Экзамен HyperTest</h1>
+
+    <div id="startScreen">
+        <label>Количество вопросов:
+            <input type="number" id="questionCount" value="10" min="1" max="200">
+        </label><br><br>
+
+        <label>Время (минуты):
+            <input type="number" id="timeMinutes" value="20" min="1" max="120">
+        </label><br><br>
+
+        <label>Файл вопросов (.json):
+            <input type="file" id="fileInput" accept=".json">
+        </label><br><br>
+
+        <button onclick="startTest()">Начать тест</button>
+    </div>
+
+    <div id="timer" style="display:none;"></div>
+
+    <div id="questionScreen" style="display:none;">
+        <div class="question-text" id="questionText"></div>
+        <img id="questionImage" style="display:none;">
+        <div class="answers" id="answers"></div>
+        <button onclick="nextQuestion()">Далее (Enter)</button>
+    </div>
+
+    <div id="resultScreen" style="display:none;"></div>
+</div>
+
+<script>
+let allQuestions = [];
+let selectedQuestions = [];
+let currentIndex = 0;
+let skipped = [];
+let answers = {};
+let timeRemaining = 0;
+let timerId = null;
+
+// Загрузка JSON
+document.getElementById("fileInput").addEventListener("change", function(e) {
+    const reader = new FileReader();
+    reader.onload = function() {
+        allQuestions = JSON.parse(reader.result);
+        alert("Загружено вопросов: " + allQuestions.length);
+    };
+    reader.readAsText(e.target.files[0]);
+});
+
+// Старт теста
+function startTest() {
+    if (allQuestions.length === 0) {
+        alert("Загрузите файл с вопросами!");
+        return;
+    }
+
+    const count = parseInt(document.getElementById("questionCount").value);
+    selectedQuestions = shuffle(allQuestions).slice(0, count);
+
+    timeRemaining = parseInt(document.getElementById("timeMinutes").value) * 60;
+    startTimer();
+
+    document.getElementById("startScreen").style.display = "none";
+    document.getElementById("questionScreen").style.display = "block";
+
+    showQuestion();
+}
+
+// Таймер
+function startTimer() {
+    document.getElementById("timer").style.display = "block";
+    updateTimer();
+
+    timerId = setInterval(() => {
+        timeRemaining--;
+        updateTimer();
+        if (timeRemaining <= 0) finishTest();
+    }, 1000);
+}
+
+function updateTimer() {
+    const m = Math.floor(timeRemaining / 60);
+    const s = timeRemaining % 60;
+    document.getElementById("timer").innerText =
+        `Осталось времени: ${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+}
+
+// Показ вопроса
+function showQuestion() {
+    const q = selectedQuestions[currentIndex];
+
+    document.getElementById("questionText").innerText = q.text;
+
+    const img = document.getElementById("questionImage");
+    if (q.image) {
+        img.src = q.image;
+        img.style.display = "block";
+    } else {
+        img.style.display = "none";
+    }
+
+    const answersDiv = document.getElementById("answers");
+    answersDiv.innerHTML = "";
+
+    q.answers.forEach((a, i) => {
+        answersDiv.innerHTML += `
+            <label>
+                <input type="radio" name="answer" value="${i}" style="display:none;">
+                <span>${i + 1}. ${a.text}</span>
+            </label>
+        `;
+    });
+}
+
+// Клавиатура
+document.addEventListener("keydown", function(e) {
+    const key = e.key;
+
+    // Выбор ответа 1–5
+    if (["1","2","3","4","5"].includes(key)) {
+        const index = parseInt(key) - 1;
+        const options = document.querySelectorAll('input[name="answer"]');
+
+        if (index < options.length) {
+            if (options[index].checked) {
+                options[index].checked = false;
+            } else {
+                options[index].checked = true;
+            }
+        }
+    }
+
+    // Enter = далее
+    if (key === "Enter") {
+        nextQuestion();
+    }
+});
+
+// Следующий вопрос
+function nextQuestion() {
+    const selected = document.querySelector('input[name="answer"]:checked');
+
+    if (selected) {
+        answers[currentIndex] = parseInt(selected.value);
+    } else {
+        skipped.push(currentIndex);
+    }
+
+    currentIndex++;
+
+    if (currentIndex < selectedQuestions.length) {
+        showQuestion();
+    } else if (skipped.length > 0) {
+        currentIndex = skipped.shift();
+        showQuestion();
+    } else {
+        finishTest();
+    }
+}
+
+// Завершение теста
+function finishTest() {
+    clearInterval(timerId);
+
+    let correct = 0;
+
+    selectedQuestions.forEach((q, i) => {
+        if (answers[i] !== undefined && q.answers[answers[i]].correct) {
+            correct++;
+        }
+    });
+
+    const total = selectedQuestions.length;
+    const percent = Math.round(correct / total * 100);
+    const grade = calculateGrade(percent);
+
+    document.getElementById("questionScreen").style.display = "none";
+
+    document.getElementById("resultScreen").innerHTML = `
+        <h2>Результат</h2>
+        <p>Правильных: ${correct} из ${total}</p>
+        <p>Процент: ${percent}%</p>
+        <p>Оценка: <b>${grade}</b></p>
+    `;
+    document.getElementById("resultScreen").style.display = "block";
+}
+
+// Шкала оценок
+function calculateGrade(percent) {
+    if (percent <= 20) return 1;
+    if (percent <= 30) return 2;
+    if (percent <= 40) return 3;
+    if (percent <= 50) return 4;
+    if (percent <= 60) return 5;
+    if (percent <= 70) return 6;
+    if (percent <= 80) return 7;
+    if (percent <= 90) return 8;
+    if (percent < 100) return 9;
+    return 10;
+}
+
+// Перемешивание
+function shuffle(a) {
+    return a.sort(() => Math.random() - 0.5);
+}
+</script>
+
+</body>
+</html>
