@@ -4,6 +4,50 @@
 <meta charset="UTF-8">
 <title>Экзамен HyperTest</title>
 <style>
+
+    .result-card {
+    padding: 18px;
+    margin: 18px 0;
+    border-radius: 12px;
+    animation: fadeIn 0.3s ease;
+}
+
+.result-card[data-correct="true"] {
+    background: #d8f8d8;
+    border: 2px solid #4caf50;
+}
+
+.result-card[data-correct="false"] {
+    background: #ffd6d6;
+    border: 2px solid #ff4c4c;
+}
+
+.result-img {
+    max-width: 100%;
+    border-radius: 10px;
+}
+
+/* Мобильная адаптация */
+@media (max-width: 600px) {
+    .container {
+        margin: 10px;
+        padding: 20px;
+    }
+    .question-text {
+        font-size: 18px;
+    }
+    button {
+        width: 100%;
+        font-size: 16px;
+        padding: 12px;
+    }
+    .answers label {
+        font-size: 16px;
+        padding: 12px;
+    }
+}
+
+    
     body {
         font-family: Arial, sans-serif;
         background: #e9eef5;
@@ -233,12 +277,75 @@ function finishTest() {
     clearInterval(timerId);
 
     let correct = 0;
+    let mistakes = [];
 
     selectedQuestions.forEach((q, i) => {
-        if (answers[i] !== undefined && q.answers[answers[i]].correct) {
+        const user = answers[i];
+        const correctIndex = q.answers.findIndex(a => a.correct);
+
+        if (user === correctIndex) {
             correct++;
+        } else {
+            mistakes.push(i);
         }
     });
+
+    const total = selectedQuestions.length;
+    const percent = Math.round(correct / total * 100);
+    const grade = calculateGrade(percent);
+
+    document.getElementById("questionScreen").style.display = "none";
+
+    let html = `
+        <h2>Результат</h2>
+        <p>Правильных: ${correct} из ${total}</p>
+        <p>Процент: ${percent}%</p>
+        <p>Оценка: <b>${grade}</b></p>
+
+        <button id="showMistakesBtn">Показать только ошибки</button>
+        <button id="showAllBtn" style="display:none;">Показать все</button>
+        <button id="retryMistakesBtn" ${mistakes.length === 0 ? "disabled" : ""}>
+            Повторить тест по ошибкам
+        </button>
+
+        <hr><h2>Проверка ответов</h2>
+    `;
+
+    selectedQuestions.forEach((q, i) => {
+        const userIndex = answers[i];
+        const correctIndex = q.answers.findIndex(a => a.correct);
+
+        const userText = userIndex !== undefined
+            ? q.answers[userIndex].text
+            : "<i>Не выбран</i>";
+
+        const correctText = q.answers[correctIndex].text;
+
+        const isCorrect = userIndex === correctIndex;
+
+        html += `
+            <div class="result-card" data-correct="${isCorrect}">
+                <b>Вопрос ${i + 1}:</b><br>
+                ${q.text}<br><br>
+        `;
+
+        if (q.image) {
+            html += `<img src="${q.image}" class="result-img"><br><br>`;
+        }
+
+        html += `
+                <b>Ваш ответ:</b> ${userText}<br>
+                <b>Правильный ответ:</b> ${correctText}
+            </div>
+        `;
+    });
+
+    document.getElementById("resultScreen").innerHTML = html;
+    document.getElementById("resultScreen").style.display = "block";
+
+    enableResultControls(mistakes);
+}
+
 
     const total = selectedQuestions.length;
     const percent = Math.round(correct / total * 100);
@@ -271,6 +378,45 @@ function calculateGrade(percent) {
 function shuffle(a) {
     return a.sort(() => Math.random() - 0.5);
 }
+
+    function enableResultControls(mistakes) {
+    const cards = document.querySelectorAll(".result-card");
+    const btnMistakes = document.getElementById("showMistakesBtn");
+    const btnAll = document.getElementById("showAllBtn");
+    const btnRetry = document.getElementById("retryMistakesBtn");
+
+    btnMistakes.onclick = () => {
+        cards.forEach(c => {
+            if (c.dataset.correct === "true") c.style.display = "none";
+        });
+        btnMistakes.style.display = "none";
+        btnAll.style.display = "inline-block";
+    };
+
+    btnAll.onclick = () => {
+        cards.forEach(c => c.style.display = "block");
+        btnAll.style.display = "none";
+        btnMistakes.style.display = "inline-block";
+    };
+
+    btnRetry.onclick = () => {
+        if (mistakes.length === 0) return;
+
+        selectedQuestions = mistakes.map(i => selectedQuestions[i]);
+        answers = {};
+        skipped = [];
+        currentIndex = 0;
+
+        timeRemaining = 60 * 10; // 10 минут на повторный тест
+        startTimer();
+
+        document.getElementById("resultScreen").style.display = "none";
+        document.getElementById("questionScreen").style.display = "block";
+
+        showQuestion();
+    };
+}
+
 </script>
 
 </body>
